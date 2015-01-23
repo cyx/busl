@@ -24,24 +24,26 @@ func init() {
 	gracefulServer.InnerServer.WriteTimeout = *util.HttpWriteTimeout
 }
 
-func mkstream(w http.ResponseWriter, _ *http.Request) {
+func mkstream(w http.ResponseWriter, r *http.Request) {
 	registrar := broker.NewRedisRegistrar()
 	uuid, err := util.NewUUID()
+	requestId := util.RequestId(r)
+
 	if err != nil {
 		http.Error(w, "Unable to create stream. Please try again.", http.StatusServiceUnavailable)
 		rollbar.Error(rollbar.ERR, fmt.Errorf("unable to create new uuid for stream: %#v", err))
-		util.CountWithData("mkstream.create.fail", 1, "error=%s", err)
+		util.CountWithData("mkstream.create.fail", 1, "error=%s request_id=%s", err, requestId)
 		return
 	}
 
 	if err := registrar.Register(uuid); err != nil {
 		http.Error(w, "Unable to create stream. Please try again.", http.StatusServiceUnavailable)
 		rollbar.Error(rollbar.ERR, fmt.Errorf("unable to register stream: %#v", err))
-		util.CountWithData("mkstream.create.fail", 1, "error=%s", err)
+		util.CountWithData("mkstream.create.fail", 1, "error=%s request_id=%s", err, requestId)
 		return
 	}
 
-	util.Count("mkstream.create.success")
+	util.CountWithData("mkstream.create.success", 1, "request_id=%s", requestId)
 
 	io.WriteString(w, string(uuid))
 }
@@ -52,6 +54,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 
 func pub(w http.ResponseWriter, r *http.Request) {
 	uuid := util.UUID(r.URL.Query().Get(":uuid"))
+	requestId := util.RequestId(r)
 
 	if !util.StringSliceUtil(r.TransferEncoding).Contains("chunked") {
 		http.Error(w, "A chunked Transfer-Encoding header is required.", http.StatusBadRequest)
@@ -79,12 +82,14 @@ func pub(w http.ResponseWriter, r *http.Request) {
 
 		switch {
 		case err == io.ErrUnexpectedEOF:
-			util.CountWithData("server.pub.read.eoferror", 1, "msg=\"%v\"", err.Error())
+			util.CountWithData("server.pub.read.eoferror", 1,
+				"msg=\"%v\" request_id=%s", err.Error(), requestId)
 			return
 		case err == io.EOF:
 			return
 		case err != nil:
-			log.Printf("%#v", err)
+			util.CountWithData("server.pub.read.error", 1,
+				"msg=\"%v\" request_id=%s", err, requestId)
 			http.Error(w, "Unhandled error, please try again.", http.StatusInternalServerError)
 			rollbar.Error(rollbar.ERR, fmt.Errorf("unhandled error: %#v", err))
 			return
@@ -96,8 +101,10 @@ func pub(w http.ResponseWriter, r *http.Request) {
 func sub(w http.ResponseWriter, r *http.Request) {
 	f, ok := w.(http.Flusher)
 	closeNotifier := w.(http.CloseNotifier).CloseNotify()
+	requestId := util.RequestId(r)
 
 	if !ok {
+		util.CountWithData("server.sub.streaming.unsupported", 1, "request_id=%s", requestId)
 		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
 		return
 	}
@@ -114,6 +121,7 @@ func sub(w http.ResponseWriter, r *http.Request) {
 			message = assets.HttpCatGone
 		}
 
+		util.CountWithData("server.sub.channel.missing", 1, "request_id=%s", requestId)
 		http.Error(w, message, http.StatusGone)
 		f.Flush()
 		return
