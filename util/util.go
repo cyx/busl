@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"time"
@@ -83,4 +84,23 @@ func AwaitSignals(signals ...os.Signal) <-chan struct{} {
 	}()
 
 	return received
+}
+
+func RequestId(r *http.Request) (id string) {
+	if id = r.Header.Get("Request-Id"); id == "" {
+		id = r.Header.Get("X-Request-Id")
+	}
+
+	if id == "" {
+		// Given that getting errors from /dev/urandom
+		// should be a rare enough event, coupled with
+		// the fact that having an empty request_id
+		// shouldn't interrupt other parts of busl
+		// then better to just continue from here
+		// with an empty string.
+		uuid, _ := NewUUID()
+		id = string(uuid)
+	}
+
+	return id
 }
