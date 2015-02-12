@@ -45,7 +45,7 @@ func Transform(offset int, in, out chan []byte) {
 }
 
 func format(pos int, msg []byte) []byte {
-	buf := bytes.NewBufferString(fmt.Sprintf(id, pos))
+	buf := bytes.NewBufferString(fmt.Sprintf(id, pos+len(msg)))
 
 	for _, line := range bytes.Split(msg, newline) {
 		buf.WriteString(fmt.Sprintf(data, line))

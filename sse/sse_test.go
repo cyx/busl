@@ -14,11 +14,11 @@ var (
 	}
 
 	output = []string{
-		"id: 0\ndata: hello\n\n",
-		"id: 5\ndata: world\n\n",
-		"id: 10\ndata: !\n\n",
-		"id: 11\ndata: hello\ndata: world\n\n",
-		"id: 22\ndata: hello\ndata: \ndata: world\n\n",
+		"id: 5\ndata: hello\n\n",
+		"id: 10\ndata: world\n\n",
+		"id: 11\ndata: !\n\n",
+		"id: 22\ndata: hello\ndata: world\n\n",
+		"id: 34\ndata: hello\ndata: \ndata: world\n\n",
 	}
 )
 
