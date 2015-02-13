@@ -23,6 +23,7 @@ var (
 	redisPool          *redis.Pool
 	redisKeyExpire     = 60 // redis uses seconds for EXPIRE
 	redisChannelExpire = redisKeyExpire * 5
+	errChannelDone     = errors.New("Channel is done.")
 )
 
 func init() {
@@ -211,32 +212,62 @@ func (b *RedisBroker) publishOn(msg []byte) {
 	conn.Send("PUBLISH", b.channel.id(), appendedLen)
 }
 
-func (b *RedisBroker) replay(ch chan []byte) (err error) {
+func (b *RedisBroker) next() (data []byte, err error) {
 	conn := redisPool.Get()
 	defer conn.Close()
 
+	var done []byte
+
+	if b.position == 0 {
+		result, err := redis.Values(conn.Do("MGET", b.channel.id(), b.channel.doneId()))
+
+		if err != nil {
+			return nil, err
+		}
+
+		done = getRedisByteArray(result[1])
+		data = getRedisByteArray(result[0])
+
+		// TODO: figure out a way to normalize this with getRange,
+		// was thinking of using redis EVAL to make the interface
+		// uniform
+		b.incrPosition(int64(len(data)))
+	} else {
+		result, err := conn.Do("GET", b.channel.doneId())
+
+		if err != nil {
+			return nil, err
+		}
+
+		done = getRedisByteArray(result)
+		data = b.getRange([]byte("-1"))
+	}
+
+	if done != nil && done[0] == 1 {
+		return data, errChannelDone
+	}
+
+	return data, nil
+}
+
+func (b *RedisBroker) replay(ch chan []byte) (err error) {
 	if _, channelExists := b.subscribers[ch]; !channelExists {
 		return errors.New("Channel already closed.")
 	}
 
-	result, err := redis.Values(conn.Do("MGET", b.channel.id(), b.channel.doneId()))
-	if err != nil {
+	data, err := b.next()
+
+	if data != nil {
+		ch <- data
+	}
+
+	if err == errChannelDone {
+		util.Count("RedisBroker.replay.channelDone")
+		return err
+	} else if err != nil {
 		util.CountWithData("RedisBroker.publishOn.error", 1, "error=%s", err)
 		return
 	}
-
-	buffer, channelDone := getRedisByteArray(result[0]), getRedisByteArray(result[1])
-
-	if buffer != nil {
-		b.position = int64(len(buffer))
-		ch <- buffer
-	}
-
-	if channelDone != nil && channelDone[0] == 1 {
-		util.Count("RedisBroker.replay.channelDone")
-		return errors.New("Channel is done.")
-	}
-
 	return
 }
 
@@ -248,10 +279,16 @@ func (b *RedisBroker) getRange(newRange []byte) []byte {
 		log.Println(err)
 		return []byte{}
 	} else {
-		// TODO: Add mutex
-		b.position = b.position + int64(len(subscSlice))
+		b.incrPosition(int64(len(subscSlice)))
 		return subscSlice
 	}
+}
+
+func (b *RedisBroker) incrPosition(n int64) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.position += n
 }
 
 func getRedisByteArray(v interface{}) []byte {

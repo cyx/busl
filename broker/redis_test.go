@@ -28,7 +28,6 @@ var _ = Suite(&BrokerSuite{})
 /*
  * Registrar Suite
  */
-
 func (s *RegistrarSuite) SetUpTest(c *C) {
 	s.registrar = NewRedisRegistrar()
 	s.uuid, _ = u.NewUUID()
@@ -89,4 +88,13 @@ func (s *BrokerSuite) TestRedisSubscribeChannelDone(c *C) {
 	ch, _ := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
 	c.Assert(string(<-ch), Equals, "busl")
+}
+
+func (s *BrokerSuite) TestRedisSubscribeWithOffset(c *C) {
+	s.broker.Publish([]byte("busl"))
+
+	broker := NewRedisBroker(s.uuid)
+	ch, _ := broker.Subscribe(2)
+	defer broker.Unsubscribe(ch)
+	c.Assert(string(<-ch), Equals, "sl")
 }
