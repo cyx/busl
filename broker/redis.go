@@ -99,7 +99,6 @@ type RedisBroker struct {
 	channel     channel
 	subscribers map[chan []byte]bool
 	psc         redis.PubSubConn
-	position    int64
 	mutex       *sync.Mutex
 }
 
@@ -108,7 +107,6 @@ func NewRedisBroker(uuid util.UUID) *RedisBroker {
 		channel(uuid),
 		make(map[chan []byte]bool),
 		redis.PubSubConn{},
-		0,
 		&sync.Mutex{},
 	}
 
@@ -124,18 +122,19 @@ func (b *RedisBroker) Subscribe(offset int64) (ch chan []byte, err error) {
 	defer b.mutex.Unlock()
 	ch = make(chan []byte, msgBuf)
 	b.subscribers[ch] = true
-	b.position = offset
-	go b.redisSubscribe(ch)
+	go b.redisSubscribe(ch, offset)
 	return
 }
 
-func (b *RedisBroker) redisSubscribe(ch chan []byte) {
+func (b *RedisBroker) redisSubscribe(ch chan []byte, offset int64) {
 	conn := redisPool.Get()
 	defer conn.Close()
 
-	if err := b.replay(ch); err != nil {
+	if n, err := b.replay(ch, offset); err != nil {
 		b.Unsubscribe(ch)
 		return
+	} else {
+		offset += int64(n)
 	}
 
 	b.psc = redis.PubSubConn{conn}
@@ -150,7 +149,8 @@ func (b *RedisBroker) redisSubscribe(ch chan []byte) {
 				b.psc.PUnsubscribe(b.channel.wildcardId())
 			case b.channel.id():
 				if b.subscribers[ch] {
-					data, _ := b.getRange(msg.Data)
+					data, _ := b.getRange(offset, msg.Data)
+					offset += int64(len(data))
 					ch <- data
 				} else {
 					return
@@ -158,7 +158,7 @@ func (b *RedisBroker) redisSubscribe(ch chan []byte) {
 			}
 		case redis.Subscription:
 			if msg.Kind == "punsubscribe" || msg.Kind == "unsubscribe" {
-				subscSlice, _ := b.getRange([]byte("-1"))
+				subscSlice, _ := b.getRange(offset, []byte("-1"))
 				ch <- subscSlice
 
 				util.Count("RedisBroker.redisSubscribe.Channel.unsubscribe")
@@ -224,12 +224,12 @@ func (b *RedisBroker) publishOn(msg []byte) error {
 	return conn.Send("PUBLISH", b.channel.id(), appendedLen)
 }
 
-func (b *RedisBroker) replay(ch chan []byte) (err error) {
+func (b *RedisBroker) replay(ch chan []byte, offset int64) (n int, err error) {
 	if _, channelExists := b.subscribers[ch]; !channelExists {
-		return errors.New("Channel already closed.")
+		return 0, errors.New("Channel already closed.")
 	}
 
-	data, err := b.getRange([]byte("-1"))
+	data, err := b.getRange(offset, []byte("-1"))
 
 	if data != nil {
 		ch <- data
@@ -237,22 +237,22 @@ func (b *RedisBroker) replay(ch chan []byte) (err error) {
 
 	if err == errChannelDone {
 		util.Count("RedisBroker.replay.channelDone")
-		return err
+		return len(data), err
 	} else if err != nil {
 		util.CountWithData("RedisBroker.publishOn.error", 1, "error=%s", err)
-		return
+		return 0, err
 	}
-	return
+	return len(data), err
 }
 
-func (b *RedisBroker) getRange(end []byte) ([]byte, error) {
+func (b *RedisBroker) getRange(start int64, end []byte) ([]byte, error) {
 	conn := redisPool.Get()
 	defer conn.Close()
 
 	results, err := redis.Values(conn.Do(
 		"EVALSHA", luaFetchSha1,
 		2, b.channel.id(), b.channel.doneId(),
-		b.position, end))
+		start, end))
 
 	if err != nil {
 		log.Println(err)
@@ -261,20 +261,12 @@ func (b *RedisBroker) getRange(end []byte) ([]byte, error) {
 
 	data := getRedisByteArray(results[0])
 	done := getRedisByteArray(results[1])
-	b.incrPosition(int64(len(data)))
 
 	if done != nil && done[0] == 1 {
 		err = errChannelDone
 	}
 
 	return data, err
-}
-
-func (b *RedisBroker) incrPosition(n int64) {
-	b.mutex.Lock()
-	defer b.mutex.Unlock()
-
-	b.position += n
 }
 
 func getRedisByteArray(v interface{}) []byte {
