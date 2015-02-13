@@ -24,12 +24,18 @@ var (
 	redisKeyExpire     = 60 // redis uses seconds for EXPIRE
 	redisChannelExpire = redisKeyExpire * 5
 	errChannelDone     = errors.New("Channel is done.")
+	luaFetchSha1       = []byte{}
 )
 
 func init() {
 	flag.Parse()
 	redisServer, _ = url.Parse(*redisUrl)
 	redisPool = newPool(redisServer)
+
+	conn := redisPool.Get()
+	defer conn.Close()
+
+	luaFetchSha1, _ = redis.Bytes(conn.Do("SCRIPT", "LOAD", luaFetch))
 }
 
 func newPool(server *url.URL) *redis.Pool {
@@ -144,7 +150,7 @@ func (b *RedisBroker) redisSubscribe(ch chan []byte) {
 				b.psc.PUnsubscribe(b.channel.wildcardId())
 			case b.channel.id():
 				if b.subscribers[ch] {
-					data := b.getRange(msg.Data)
+					data, _ := b.getRange(msg.Data)
 					ch <- data
 				} else {
 					return
@@ -152,7 +158,7 @@ func (b *RedisBroker) redisSubscribe(ch chan []byte) {
 			}
 		case redis.Subscription:
 			if msg.Kind == "punsubscribe" || msg.Kind == "unsubscribe" {
-				subscSlice := b.getRange([]byte("-1"))
+				subscSlice, _ := b.getRange([]byte("-1"))
 				ch <- subscSlice
 
 				util.Count("RedisBroker.redisSubscribe.Channel.unsubscribe")
@@ -218,50 +224,12 @@ func (b *RedisBroker) publishOn(msg []byte) error {
 	return conn.Send("PUBLISH", b.channel.id(), appendedLen)
 }
 
-func (b *RedisBroker) next() (data []byte, err error) {
-	conn := redisPool.Get()
-	defer conn.Close()
-
-	var done []byte
-
-	if b.position == 0 {
-		result, err := redis.Values(conn.Do("MGET", b.channel.id(), b.channel.doneId()))
-
-		if err != nil {
-			return nil, err
-		}
-
-		done = getRedisByteArray(result[1])
-		data = getRedisByteArray(result[0])
-
-		// TODO: figure out a way to normalize this with getRange,
-		// was thinking of using redis EVAL to make the interface
-		// uniform
-		b.incrPosition(int64(len(data)))
-	} else {
-		result, err := conn.Do("GET", b.channel.doneId())
-
-		if err != nil {
-			return nil, err
-		}
-
-		done = getRedisByteArray(result)
-		data = b.getRange([]byte("-1"))
-	}
-
-	if done != nil && done[0] == 1 {
-		return data, errChannelDone
-	}
-
-	return data, nil
-}
-
 func (b *RedisBroker) replay(ch chan []byte) (err error) {
 	if _, channelExists := b.subscribers[ch]; !channelExists {
 		return errors.New("Channel already closed.")
 	}
 
-	data, err := b.next()
+	data, err := b.getRange([]byte("-1"))
 
 	if data != nil {
 		ch <- data
@@ -277,17 +245,29 @@ func (b *RedisBroker) replay(ch chan []byte) (err error) {
 	return
 }
 
-func (b *RedisBroker) getRange(newRange []byte) []byte {
+func (b *RedisBroker) getRange(end []byte) ([]byte, error) {
 	conn := redisPool.Get()
 	defer conn.Close()
-	subscSlice, err := redis.Bytes(conn.Do("GETRANGE", b.channel.id(), b.position, newRange))
+
+	results, err := redis.Values(conn.Do(
+		"EVALSHA", luaFetchSha1,
+		2, b.channel.id(), b.channel.doneId(),
+		b.position, end))
+
 	if err != nil {
 		log.Println(err)
-		return []byte{}
-	} else {
-		b.incrPosition(int64(len(subscSlice)))
-		return subscSlice
+		return []byte{}, err
 	}
+
+	data := getRedisByteArray(results[0])
+	done := getRedisByteArray(results[1])
+	b.incrPosition(int64(len(data)))
+
+	if done != nil && done[0] == 1 {
+		err = errChannelDone
+	}
+
+	return data, err
 }
 
 func (b *RedisBroker) incrPosition(n int64) {
@@ -336,3 +316,16 @@ func (rr *RedisRegistrar) IsRegistered(channel util.UUID) (registered bool) {
 
 	return result == 1
 }
+
+const luaFetch = `
+local uuid = KEYS[1]
+local done = KEYS[2]
+local start = tonumber(ARGV[1])
+local finish = tonumber(ARGV[2])
+
+if start == 0 and finish == -1 then
+        return redis.call("MGET", uuid, done)
+else
+	return {redis.call("GETRANGE", uuid, start, finish), redis.call("GET", done)}
+end
+`
