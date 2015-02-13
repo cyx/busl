@@ -108,7 +108,7 @@ func NewRedisBroker(uuid util.UUID) *RedisBroker {
 	return broker
 }
 
-func (b *RedisBroker) Subscribe() (ch chan []byte, err error) {
+func (b *RedisBroker) Subscribe(offset int64) (ch chan []byte, err error) {
 	if !NewRedisRegistrar().IsRegistered(b.channel.uuid()) {
 		return nil, errors.New("Channel is not registered.")
 	}
@@ -117,6 +117,7 @@ func (b *RedisBroker) Subscribe() (ch chan []byte, err error) {
 	defer b.mutex.Unlock()
 	ch = make(chan []byte, msgBuf)
 	b.subscribers[ch] = true
+	b.position = offset
 	go b.redisSubscribe(ch)
 	return
 }

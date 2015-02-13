@@ -105,7 +105,7 @@ func sub(w http.ResponseWriter, r *http.Request) {
 	uuid := util.UUID(r.URL.Query().Get(":uuid"))
 
 	msgBroker := broker.NewRedisBroker(uuid)
-	ch, err := msgBroker.Subscribe()
+	ch, err := msgBroker.Subscribe(0)
 	defer msgBroker.Unsubscribe(ch)
 
 	if err != nil {
