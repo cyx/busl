@@ -6,12 +6,14 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/braintree/manners"
 	"github.com/cyberdelia/pat"
 	"github.com/heroku/busl/assets"
 	"github.com/heroku/busl/broker"
+	"github.com/heroku/busl/sse"
 	"github.com/heroku/busl/util"
 	"github.com/heroku/rollbar"
 )
@@ -84,8 +86,14 @@ func sub(w http.ResponseWriter, r *http.Request) {
 
 	uuid := util.UUID(r.URL.Query().Get(":uuid"))
 
+	lastEventId := r.Header.Get("last-event-id")
+	offset, err := strconv.Atoi(lastEventId)
+	if err != nil {
+		offset = 0
+	}
+
 	msgBroker := broker.NewRedisBroker(uuid)
-	ch, err := msgBroker.Subscribe(0)
+	ch, err := msgBroker.Subscribe(int64(offset))
 	defer msgBroker.Unsubscribe(ch)
 
 	if err != nil {
@@ -97,6 +105,17 @@ func sub(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, message, http.StatusGone)
 		f.Flush()
 		return
+	}
+
+	keepalive := util.GetNullByte()
+	if r.Header.Get("Accept") == "text/event-stream" {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+
+		out := make(chan []byte, len(ch))
+		go sse.Transform(offset, ch, out)
+		ch = out
+		keepalive = []byte(":keepalive\n")
 	}
 
 	timer := time.NewTimer(*util.HeartbeatDuration)
@@ -117,7 +136,7 @@ func sub(w http.ResponseWriter, r *http.Request) {
 		case t, tOk := <-timer.C:
 			if tOk {
 				util.Count("server.sub.keepAlive")
-				w.Write(util.GetNullByte())
+				w.Write(keepalive)
 				f.Flush()
 				timer.Reset(*util.HeartbeatDuration)
 				continue
