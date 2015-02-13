@@ -49,8 +49,6 @@ func TestEvenOffset(t *testing.T) {
 	go Transform(5, in, out)
 	defer close(in)
 
-	in <- []byte(input[0])
-
 	for i, v := range output[1:] {
 		in <- []byte(input[i+1])
 		res := <-out
@@ -64,7 +62,7 @@ func TestAwkwardOffsetOriginalChunks(t *testing.T) {
 	go Transform(3, in, out)
 	defer close(in)
 
-	in <- []byte(input[0])
+	in <- []byte(input[0][3:])
 	res := <-out
 
 	assertEqual(t, string(res), string(format(3, []byte("lo"))))
@@ -75,7 +73,7 @@ func TestAwkwardOffsetBigChunk(t *testing.T) {
 	go Transform(7, in, out)
 	defer close(in)
 
-	in <- []byte("hello world hola mundo")
+	in <- []byte("orld hola mundo")
 	in <- []byte("good bye!")
 
 	res1 := <-out

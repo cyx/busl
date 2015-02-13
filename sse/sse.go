@@ -24,19 +24,12 @@ var (
 //     <-out // id: 0\ndata: hello\n\n
 //
 func Transform(offset int, in, out chan []byte) {
-	pos := 0
-
 	for {
 		msg, msgOk := <-in
 
 		if msgOk {
-			length := len(msg)
-			if pos >= offset {
-				out <- format(pos, msg)
-			} else if pos < offset && offset < pos+length {
-				out <- format(offset, msg[(offset-pos):])
-			}
-			pos += length
+			out <- format(offset, msg)
+			offset += len(msg)
 		} else {
 			close(out)
 			return
