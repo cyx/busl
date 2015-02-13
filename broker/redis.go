@@ -3,6 +3,7 @@ package broker
 import (
 	"errors"
 	"flag"
+	"io"
 	"log"
 	"net/url"
 	"os"
@@ -23,7 +24,6 @@ var (
 	redisPool          *redis.Pool
 	redisKeyExpire     = 60 // redis uses seconds for EXPIRE
 	redisChannelExpire = redisKeyExpire * 5
-	errChannelDone     = errors.New("Channel is done.")
 	luaFetchSha1       = []byte{}
 )
 
@@ -235,7 +235,7 @@ func (b *RedisBroker) replay(ch chan []byte, offset int64) (n int, err error) {
 		ch <- data
 	}
 
-	if err == errChannelDone {
+	if err == io.EOF {
 		util.Count("RedisBroker.replay.channelDone")
 		return len(data), err
 	} else if err != nil {
@@ -263,7 +263,7 @@ func (b *RedisBroker) getRange(start int64, end []byte) ([]byte, error) {
 	done := getRedisByteArray(results[1])
 
 	if done != nil && done[0] == 1 {
-		err = errChannelDone
+		err = io.EOF
 	}
 
 	return data, err
