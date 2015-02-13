@@ -8,7 +8,7 @@ import (
 
 type Broker interface {
 	io.Writer
-	Subscribe() (chan []byte, error)
+	Subscribe(offset int64) (chan []byte, error)
 	Unsubscribe(ch chan []byte)
 }
 

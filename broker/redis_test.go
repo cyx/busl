@@ -28,7 +28,6 @@ var _ = Suite(&BrokerSuite{})
 /*
  * Registrar Suite
  */
-
 func (s *RegistrarSuite) SetUpTest(c *C) {
 	s.registrar = NewRedisRegistrar()
 	s.uuid, _ = u.NewUUID()
@@ -45,13 +44,13 @@ func (s *RegistrarSuite) TestUnregisteredIsNotRegistered(c *C) {
 }
 
 func (s *RegistrarSuite) TestUnregisteredRedisSubscribe(c *C) {
-	_, err := s.broker.Subscribe()
+	_, err := s.broker.Subscribe(0)
 	c.Assert(err.Error(), Equals, "Channel is not registered.")
 }
 
 func (s *RegistrarSuite) TestRegisteredRedisSubscribe(c *C) {
 	s.registrar.Register(s.uuid)
-	ch, err := s.broker.Subscribe()
+	ch, err := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
 	c.Assert(err, IsNil)
 }
@@ -68,7 +67,7 @@ func (s *BrokerSuite) SetUpTest(c *C) {
 }
 
 func (s *BrokerSuite) TestRedisSubscribe(c *C) {
-	ch, _ := s.broker.Subscribe()
+	ch, _ := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
 	s.broker.Write([]byte("busl"))
 	c.Assert(string(<-ch), Equals, "busl")
@@ -76,7 +75,7 @@ func (s *BrokerSuite) TestRedisSubscribe(c *C) {
 
 func (s *BrokerSuite) TestRedisSubscribeReplay(c *C) {
 	s.broker.Write([]byte("busl"))
-	ch, _ := s.broker.Subscribe()
+	ch, _ := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
 	c.Assert(string(<-ch), Equals, "busl")
 }
@@ -86,7 +85,16 @@ func (s *BrokerSuite) TestRedisSubscribeChannelDone(c *C) {
 	redisBroker.Write([]byte("busl"))
 	redisBroker.UnsubscribeAll()
 
-	ch, _ := s.broker.Subscribe()
+	ch, _ := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
 	c.Assert(string(<-ch), Equals, "busl")
+}
+
+func (s *BrokerSuite) TestRedisSubscribeWithOffset(c *C) {
+	s.broker.Publish([]byte("busl"))
+
+	broker := NewRedisBroker(s.uuid)
+	ch, _ := broker.Subscribe(2)
+	defer broker.Unsubscribe(ch)
+	c.Assert(string(<-ch), Equals, "sl")
 }
