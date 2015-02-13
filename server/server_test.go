@@ -88,7 +88,7 @@ func (s *HttpServerSuite) TestSub(c *C) {
 		sub(response, request)
 	})
 
-	publisher.Publish([]byte("busl1"))
+	publisher.Write([]byte("busl1"))
 	publisher.UnsubscribeAll()
 	<-waiter
 

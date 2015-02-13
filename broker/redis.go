@@ -190,11 +190,16 @@ func (b *RedisBroker) UnsubscribeAll() {
 	conn.Do("SETEX", b.channel.doneId(), redisChannelExpire, []byte{1})
 }
 
-func (b *RedisBroker) Publish(msg []byte) {
-	b.publishOn(msg)
+func (b *RedisBroker) Write(msg []byte) (n int, err error) {
+	err = b.publishOn(msg)
+
+	if err != nil {
+		return 0, err
+	}
+	return len(msg), nil
 }
 
-func (b *RedisBroker) publishOn(msg []byte) {
+func (b *RedisBroker) publishOn(msg []byte) error {
 	conn := redisPool.Get()
 	defer conn.Close()
 
@@ -206,10 +211,11 @@ func (b *RedisBroker) publishOn(msg []byte) {
 	appendedVals, err := redis.Values(conn.Do("EXEC"))
 	if err != nil {
 		util.CountWithData("RedisBroker.publishOn.error", 1, "error=%s", err)
+		return err
 	}
 	appendedLen := appendedVals[0].(int64)
 
-	conn.Send("PUBLISH", b.channel.id(), appendedLen)
+	return conn.Send("PUBLISH", b.channel.id(), appendedLen)
 }
 
 func (b *RedisBroker) next() (data []byte, err error) {

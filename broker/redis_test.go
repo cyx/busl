@@ -69,12 +69,12 @@ func (s *BrokerSuite) SetUpTest(c *C) {
 func (s *BrokerSuite) TestRedisSubscribe(c *C) {
 	ch, _ := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
-	s.broker.Publish([]byte("busl"))
+	s.broker.Write([]byte("busl"))
 	c.Assert(string(<-ch), Equals, "busl")
 }
 
 func (s *BrokerSuite) TestRedisSubscribeReplay(c *C) {
-	s.broker.Publish([]byte("busl"))
+	s.broker.Write([]byte("busl"))
 	ch, _ := s.broker.Subscribe(0)
 	defer s.broker.Unsubscribe(ch)
 	c.Assert(string(<-ch), Equals, "busl")
@@ -82,7 +82,7 @@ func (s *BrokerSuite) TestRedisSubscribeReplay(c *C) {
 
 func (s *BrokerSuite) TestRedisSubscribeChannelDone(c *C) {
 	redisBroker := NewRedisBroker(s.uuid)
-	redisBroker.Publish([]byte("busl"))
+	redisBroker.Write([]byte("busl"))
 	redisBroker.UnsubscribeAll()
 
 	ch, _ := s.broker.Subscribe(0)
@@ -91,7 +91,7 @@ func (s *BrokerSuite) TestRedisSubscribeChannelDone(c *C) {
 }
 
 func (s *BrokerSuite) TestRedisSubscribeWithOffset(c *C) {
-	s.broker.Publish([]byte("busl"))
+	s.broker.Write([]byte("busl"))
 
 	broker := NewRedisBroker(s.uuid)
 	ch, _ := broker.Subscribe(2)
