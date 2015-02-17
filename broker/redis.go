@@ -25,6 +25,7 @@ var (
 	redisKeyExpire     = 60 // redis uses seconds for EXPIRE
 	redisChannelExpire = redisKeyExpire * 5
 	luaFetchSha1       = []byte{}
+	luaPublishSha1     = []byte{}
 )
 
 func init() {
@@ -36,6 +37,7 @@ func init() {
 	defer conn.Close()
 
 	luaFetchSha1, _ = redis.Bytes(conn.Do("SCRIPT", "LOAD", luaFetch))
+	luaPublishSha1, _ = redis.Bytes(conn.Do("SCRIPT", "LOAD", luaPublish))
 }
 
 func newPool(server *url.URL) *redis.Pool {
@@ -245,6 +247,11 @@ func (b *RedisBroker) replay(ch chan []byte, offset int64) (n int, err error) {
 	return len(data), err
 }
 
+func redisEvalSha(sha string, v ...interface{}) {
+	conn := redisPool.Get()
+	defer conn.Close()
+}
+
 func (b *RedisBroker) getRange(start int64, end []byte) ([]byte, error) {
 	conn := redisPool.Get()
 	defer conn.Close()
@@ -320,4 +327,18 @@ if start == 0 and finish == -1 then
 else
 	return {redis.call("GETRANGE", uuid, start, finish), redis.call("GET", done)}
 end
+`
+
+const luaPublish = `
+local id   = KEYS[1]
+local done = KEYS[2]
+local msg  = ARGV[1]
+local ttl  = ARGV[2]
+
+redis.call("APPEND", id, msg)
+redis.call("EXPIRE", id, ttl)
+redis.call("DEL", done)
+redis.call("PUBLISH", id, #msg)
+
+return 1
 `
