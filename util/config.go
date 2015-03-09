@@ -10,7 +10,7 @@ import (
 
 var (
 	EnforceHTTPS       = flag.Bool("enforceHttps", os.Getenv("ENFORCE_HTTPS") == "1", "Whether to enforce use of HTTPS.")
-	HeartbeatDuration  = flag.Duration("subscribeHeartbeatDuration", time.Second*10, "Heartbeat interval for HTTP stream subscriptions.")
+	HeartbeatDuration  = flag.Duration("subscribeHeartbeatDuration", time.Millisecond*100, "Heartbeat interval for HTTP stream subscriptions.")
 	HttpPort           = flag.String("httpPort", os.Getenv("PORT"), "HTTP port for the server.")
 	HttpReadTimeout    = flag.Duration("httpReadTimeout", time.Hour, "Timeout for HTTP request reading")
 	HttpWriteTimeout   = flag.Duration("httpWriteTimeout", time.Hour, "Timeout for HTTP request writing")
