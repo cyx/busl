@@ -153,11 +153,11 @@ func newReader(w http.ResponseWriter, r *http.Request) (io.ReadCloser, error) {
 	// the keepalive ack.
 	ack := util.GetNullByte()
 
-	if r.Header.Get("Accept") == "text/event-stream" {
-		if broker.ReaderDone(rd) {
-			return nil, errNoContent
-		}
+	if broker.NoContent(rd, offset(r)) {
+		return nil, errNoContent
+	}
 
+	if r.Header.Get("Accept") == "text/event-stream" {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("Cache-Control", "no-cache")
 
