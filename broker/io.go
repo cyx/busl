@@ -207,3 +207,19 @@ func ReaderDone(rd io.Reader) bool {
 	done, _ := redis.Bool(conn.Do("EXISTS", r.channel.doneId()))
 	return done
 }
+
+func NoContent(rd io.Reader, offset int64) bool {
+	if !ReaderDone(rd) {
+		return false
+	}
+
+	conn := redisPool.Get()
+	defer conn.Close()
+
+	strlen, err := redis.Int64(conn.Do("STRLEN", rd.(*reader).channel.id()))
+	if err != nil {
+		return false
+	}
+
+	return offset > (strlen - 1)
+}

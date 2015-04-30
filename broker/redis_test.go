@@ -144,6 +144,7 @@ func (s *BrokerSuite) TestRedisReadFromClosed(c *C) {
 	p := make([]byte, 10)
 
 	s.reader.Read(p)
+	s.writer.Write([]byte("hello"))
 	s.writer.Close()
 
 	// this read should short circuit with EOF
@@ -160,4 +161,8 @@ func (s *BrokerSuite) TestRedisReadFromClosed(c *C) {
 	// Reader done on a regular io.Reader should return false
 	// and not panic
 	c.Assert(ReaderDone(strings.NewReader("hello")), Equals, false)
+
+	// NoContent should respond accordingly based on offset
+	c.Assert(NoContent(s.reader, 0), Equals, false)
+	c.Assert(NoContent(s.reader, 5), Equals, true)
 }
