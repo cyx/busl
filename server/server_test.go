@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
 
@@ -120,6 +121,70 @@ func (s *HttpServerSuite) TestPubSub(c *C) {
 		r, err := client.Do(req)
 		r.Body.Close()
 		c.Assert(err, IsNil)
+
+		<-done
+	}
+}
+
+func (s *HttpServerSuite) TestPubSubSSE(c *C) {
+	server := httptest.NewServer(app())
+	defer server.Close()
+
+	data := []struct {
+		offset int
+		input  string
+		output string
+	}{
+		{0, "hello", "id: 5\ndata: hello\n\n"},
+		{0, "hello\n", "id: 6\ndata: hello\ndata: \n\n"},
+		{0, "hello\nworld", "id: 11\ndata: hello\ndata: world\n\n"},
+		{0, "hello\nworld\n", "id: 12\ndata: hello\ndata: world\ndata: \n\n"},
+		{1, "hello\nworld\n", "id: 12\ndata: ello\ndata: world\ndata: \n\n"},
+		{6, "hello\nworld\n", "id: 12\ndata: world\ndata: \n\n"},
+		{11, "hello\nworld\n", "id: 12\ndata: \ndata: \n\n"},
+		{12, "hello\nworld\n", ""},
+	}
+
+	client := &http.Client{Transport: &http.Transport{}}
+
+	for _, testdata := range data {
+		uuid, _ := util.NewUUID()
+		url := server.URL + "/streams/" + uuid
+
+		// curl -XPUT <url>/streams/<uuid>
+		request, _ := http.NewRequest("PUT", url, nil)
+		resp, err := client.Do(request)
+		defer resp.Body.Close()
+		c.Assert(err, Equals, nil)
+
+		done := make(chan bool)
+
+		// curl -XPOST -H "Transfer-Encoding: chunked" -d "hello" <url>/streams/<uuid>
+		req := newRequestFromReader("POST", url, bytes.NewReader([]byte(testdata.input)))
+		r, err := client.Do(req)
+		c.Assert(err, Equals, nil)
+		r.Body.Close()
+
+		go func() {
+			request, _ := http.NewRequest("GET", url, nil)
+			request.Header.Add("Accept", "text/event-stream")
+			request.Header.Add("Last-Event-Id", strconv.Itoa(testdata.offset))
+
+			// curl <url>/streams/<uuid>
+			// -- waiting for publish to arrive
+			resp, err = client.Do(request)
+			defer resp.Body.Close()
+			c.Assert(err, IsNil)
+
+			body, _ := ioutil.ReadAll(resp.Body)
+			c.Assert(body, DeepEquals, []byte(testdata.output))
+
+			if len(body) == 0 {
+				c.Assert(resp.StatusCode, Equals, http.StatusNoContent)
+			}
+
+			done <- true
+		}()
 
 		<-done
 	}
