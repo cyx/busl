@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/heroku/busl/util"
 )
@@ -168,4 +169,74 @@ func ExampleOverflowingBuffer() {
 
 	//Output:
 	// 32769
+}
+
+func setupReaderDone() (io.ReadCloser, io.WriteCloser, string) {
+	p := make([]byte, 10)
+
+	uuid := setup()
+
+	r, _ := NewReader(uuid)
+	r.Read(p)
+
+	w, _ := NewWriter(uuid)
+	w.Write([]byte("hello"))
+	w.Close()
+
+	return r, w, uuid
+}
+
+func ExampleReadShortCircuitEOF() {
+	r, _, _ := setupReaderDone()
+
+	p := make([]byte, 10)
+	_, err := r.Read(p)
+
+	fmt.Println(err)
+
+	//Output:
+	// EOF
+}
+
+func ExampleReaderDoneOnDrainedReader() {
+	r, _, _ := setupReaderDone()
+	fmt.Println(ReaderDone(r))
+
+	//Output:
+	// true
+}
+
+func ExampleReaderDoneOnNewReader() {
+	_, _, uuid := setupReaderDone()
+
+	r, _ := NewReader(uuid)
+	fmt.Println(ReaderDone(r))
+
+	//Output:
+	// true
+}
+
+func ExampleReaderDoneOnNonBrokerReader() {
+	fmt.Println(ReaderDone(strings.NewReader("hello")))
+
+	//Output:
+	// false
+}
+
+func ExampleNoContentWithData() {
+	r, _, _ := setupReaderDone()
+
+	fmt.Println(NoContent(r, 0))
+
+	//Output:
+	// false
+}
+
+func ExampleNoContentWithoutData() {
+	r, _, _ := setupReaderDone()
+
+	fmt.Println(NoContent(r, 5))
+
+	//Output:
+	// true
 }

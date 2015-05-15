@@ -111,11 +111,11 @@ func (s *HttpServerSuite) TestPubSub(c *C) {
 		// completed. The mechanics of this is different in that
 		// most of the content will be replayed instead of received
 		// in chunks as they arrive.
-		resp, err = http.Get(server.URL + "/streams/" + uuid)
-		defer resp.Body.Close()
+		res, err = http.Get(server.URL + "/streams/" + uuid)
+		defer res.Body.Close()
 		c.Assert(err, IsNil)
 
-		body, _ = ioutil.ReadAll(resp.Body)
+		body, _ := ioutil.ReadAll(res.Body)
 		c.Assert(body, DeepEquals, expected)
 	}
 }

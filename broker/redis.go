@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/heroku/busl/Godeps/_workspace/src/github.com/garyburd/redigo/redis"
-	"github.com/heroku/busl/util"
 )
 
 var (
@@ -61,61 +60,6 @@ func newPool(server *url.URL) *redis.Pool {
 			return err
 		},
 	}
-}
-
-type channel string
-
-func (c channel) id() string {
-	return string(c) + ":id"
-}
-
-func (c channel) wildcardId() string {
-	return string(c) + ":*"
-}
-
-func (c channel) doneId() string {
-	return string(c) + ":done"
-}
-
-func (c channel) killId() string {
-	return string(c) + ":kill"
-}
-
-type RedisRegistrar struct{}
-
-func NewRedisRegistrar() *RedisRegistrar {
-	registrar := &RedisRegistrar{}
-
-	return registrar
-}
-
-func (rr *RedisRegistrar) Register(channelName string) (err error) {
-	conn := redisPool.Get()
-	defer conn.Close()
-
-	channel := channel(channelName)
-
-	_, err = conn.Do("SETEX", channel.id(), redisChannelExpire, make([]byte, 0))
-	if err != nil {
-		util.CountWithData("RedisRegistrar.Register.error", 1, "error=%s", err)
-		return
-	}
-	return
-}
-
-func (rr *RedisRegistrar) IsRegistered(channelName string) (registered bool) {
-	conn := redisPool.Get()
-	defer conn.Close()
-
-	channel := channel(channelName)
-
-	exists, err := redis.Bool(conn.Do("EXISTS", channel.id()))
-	if err != nil {
-		util.CountWithData("RedisRegistrar.IsRegistered.error", 1, "error=%s", err)
-		return false
-	}
-
-	return exists
 }
 
 func Get(key string) ([]byte, error) {
