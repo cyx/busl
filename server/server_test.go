@@ -2,47 +2,50 @@ package server
 
 import (
 	"bytes"
-	"fmt"
-	. "github.com/heroku/busl/Godeps/_workspace/src/gopkg.in/check.v1"
 	"github.com/heroku/busl/broker"
 	"github.com/heroku/busl/util"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type HttpServerSuite struct{}
-
-var _ = Suite(&HttpServerSuite{})
-var sf = fmt.Sprintf
 var baseURL = *util.StorageBaseURL
 
-func (s *HttpServerSuite) TestMkstream(c *C) {
+func TestMkstream(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/streams", &bytes.Buffer{})
 	res := httptest.NewRecorder()
 
 	mkstream(res, req)
 
-	c.Assert(res.Code, Equals, 200)
-	c.Assert(res.Body.String(), HasLen, 32)
+	if res.Code != 200 {
+		t.Fatalf("Expected %d to equal 200", res.Code)
+	}
+	if len(res.Body.String()) != 32 {
+		t.Fatalf("Expected len(body) == 32")
+	}
 }
 
-func (s *HttpServerSuite) Test410(c *C) {
+func Test410(t *testing.T) {
 	streamId, _ := util.NewUUID()
 	req, _ := http.NewRequest("GET", "/streams/"+streamId, nil)
 	res := httptest.NewRecorder()
 
 	sub(res, req)
 
-	c.Assert(res.Code, Equals, http.StatusNotFound)
-	c.Assert(res.Body.String(), Equals, "Channel is not registered.\n")
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("Expected %s to equal %s", res.Code, http.StatusNotFound)
+	}
+
+	if strings.TrimSpace(res.Body.String()) != notRegistered {
+		t.Fatalf("Expected %s to equal %s", res.Body.String(), notRegistered)
+	}
 }
 
-func (s *HttpServerSuite) TestPubNotRegistered(c *C) {
+func TestPubNotRegistered(t *testing.T) {
 	streamId, _ := util.NewUUID()
 	req, _ := http.NewRequest("POST", "/streams/"+streamId, &bytes.Buffer{})
 	req.TransferEncoding = []string{"chunked"}
@@ -50,20 +53,27 @@ func (s *HttpServerSuite) TestPubNotRegistered(c *C) {
 
 	pub(res, req)
 
-	c.Assert(res.Code, Equals, http.StatusNotFound)
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("Expected %d to equal %d", res.Code, http.StatusNotFound)
+	}
 }
 
-func (s *HttpServerSuite) TestPubWithoutTransferEncoding(c *C) {
+func TestPubWithoutTransferEncoding(t *testing.T) {
 	req, _ := http.NewRequest("POST", "/streams/1234", nil)
 	res := httptest.NewRecorder()
 
 	pub(res, req)
 
-	c.Assert(res.Code, Equals, http.StatusBadRequest)
-	c.Assert(res.Body.String(), Equals, "A chunked Transfer-Encoding header is required.\n")
+	if res.Code != http.StatusBadRequest {
+		t.Fatal("Expected %d to equal %d", res.Code, http.StatusBadRequest)
+	}
+
+	if strings.TrimSpace(res.Body.String()) != chunkedEncodingRequired {
+		t.Fatalf("Expected %s to equal %s", res.Body.String(), chunkedEncodingRequired)
+	}
 }
 
-func (s *HttpServerSuite) TestPubSub(c *C) {
+func TestPubSub(t *testing.T) {
 	server := httptest.NewServer(app())
 	defer server.Close()
 
@@ -81,7 +91,9 @@ func (s *HttpServerSuite) TestPubSub(c *C) {
 		req, _ := http.NewRequest("PUT", url, nil)
 		res, err := http.DefaultClient.Do(req)
 		defer res.Body.Close()
-		c.Assert(err, Equals, nil)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		done := make(chan bool)
 
@@ -90,10 +102,15 @@ func (s *HttpServerSuite) TestPubSub(c *C) {
 			// -- waiting for publish to arrive
 			res, err = http.Get(url)
 			defer res.Body.Close()
-			c.Assert(err, IsNil)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			body, _ := ioutil.ReadAll(res.Body)
-			c.Assert(body, DeepEquals, expected)
+
+			if !reflect.DeepEqual(body, expected) {
+				t.Fatalf("Expected %s to equal %s", body, expected)
+			}
 
 			done <- true
 		}()
@@ -103,7 +120,9 @@ func (s *HttpServerSuite) TestPubSub(c *C) {
 		req.TransferEncoding = []string{"chunked"}
 		res, err = http.DefaultClient.Do(req)
 		defer res.Body.Close()
-		c.Assert(err, IsNil)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		<-done
 
@@ -113,14 +132,19 @@ func (s *HttpServerSuite) TestPubSub(c *C) {
 		// in chunks as they arrive.
 		res, err = http.Get(server.URL + "/streams/" + uuid)
 		defer res.Body.Close()
-		c.Assert(err, IsNil)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		body, _ := ioutil.ReadAll(res.Body)
-		c.Assert(body, DeepEquals, expected)
+		if !reflect.DeepEqual(body, expected) {
+			t.Fatalf("Expected %s to equal %s", body, expected)
+		}
+
 	}
 }
 
-func (s *HttpServerSuite) TestPubSubSSE(c *C) {
+func TestPubSubSSE(t *testing.T) {
 	server := httptest.NewServer(app())
 	defer server.Close()
 
@@ -147,7 +171,9 @@ func (s *HttpServerSuite) TestPubSubSSE(c *C) {
 		req, _ := http.NewRequest("PUT", url, nil)
 		res, err := http.DefaultClient.Do(req)
 		defer res.Body.Close()
-		c.Assert(err, Equals, nil)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
 		done := make(chan bool)
 
@@ -155,7 +181,9 @@ func (s *HttpServerSuite) TestPubSubSSE(c *C) {
 		req, _ = http.NewRequest("POST", url, bytes.NewReader([]byte(testdata.input)))
 		req.TransferEncoding = []string{"chunked"}
 		res, err = http.DefaultClient.Do(req)
-		c.Assert(err, Equals, nil)
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 		defer res.Body.Close()
 
 		go func() {
@@ -167,13 +195,19 @@ func (s *HttpServerSuite) TestPubSubSSE(c *C) {
 			// -- waiting for publish to arrive
 			res, err = http.DefaultClient.Do(req)
 			defer res.Body.Close()
-			c.Assert(err, IsNil)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
 
 			body, _ := ioutil.ReadAll(res.Body)
-			c.Assert(body, DeepEquals, []byte(testdata.output))
+			if string(body) != testdata.output {
+				t.Fatalf("Expected %s to equal %s", body, testdata.output)
+			}
 
 			if len(body) == 0 {
-				c.Assert(res.StatusCode, Equals, http.StatusNoContent)
+				if res.StatusCode != http.StatusNoContent {
+					t.Fatalf("Expected %d to be 204 No Content", res.StatusCode)
+				}
 			}
 
 			done <- true
@@ -183,7 +217,7 @@ func (s *HttpServerSuite) TestPubSubSSE(c *C) {
 	}
 }
 
-func (s *HttpServerSuite) TestPut(c *C) {
+func TestPut(t *testing.T) {
 	server := httptest.NewServer(app())
 	defer server.Close()
 
@@ -191,14 +225,20 @@ func (s *HttpServerSuite) TestPut(c *C) {
 	req, _ := http.NewRequest("PUT", server.URL+"/streams/1/2/3", nil)
 	res, err := http.DefaultClient.Do(req)
 	defer res.Body.Close()
-	c.Assert(err, Equals, nil)
-	c.Assert(res.StatusCode, Equals, http.StatusCreated)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("Expected %d to be 201 Created", res.StatusCode)
+	}
 
 	registrar := broker.NewRedisRegistrar()
-	c.Assert(registrar.IsRegistered("1/2/3"), Equals, true)
+	if !registrar.IsRegistered("1/2/3") {
+		t.Fatalf("Expected channel 1/2/3 to be registered")
+	}
 }
 
-func (s *HttpServerSuite) TestSubGoneWithBackend(c *C) {
+func TestSubGoneWithBackend(t *testing.T) {
 	uuid, _ := util.NewUUID()
 
 	storage, get, _ := fileServer(uuid)
@@ -216,13 +256,17 @@ func (s *HttpServerSuite) TestSubGoneWithBackend(c *C) {
 
 	res, err := http.Get(server.URL + "/streams/" + uuid)
 	defer res.Body.Close()
-	c.Assert(err, IsNil)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
 
 	body, _ := ioutil.ReadAll(res.Body)
-	c.Assert(body, DeepEquals, []byte("hello world"))
+	if string(body) != "hello world" {
+		t.Fatalf("Expected %s to be `hello world`", body)
+	}
 }
 
-func (s *HttpServerSuite) TestPutWithBackend(c *C) {
+func TestPutWithBackend(t *testing.T) {
 	uuid, _ := util.NewUUID()
 
 	storage, _, put := fileServer(uuid)
@@ -244,12 +288,19 @@ func (s *HttpServerSuite) TestPutWithBackend(c *C) {
 	req.TransferEncoding = []string{"chunked"}
 	res, err := http.DefaultClient.Do(req)
 	defer res.Body.Close()
-	c.Assert(err, Equals, nil)
-	c.Assert(res.StatusCode, Equals, 200)
-	c.Assert(<-put, DeepEquals, []byte("hello world"))
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("Expected %d to be 200 OK", res.StatusCode)
+	}
+
+	if output := <-put; string(output) != "hello world" {
+		t.Fatalf("Expected %s to be `hello world`", output)
+	}
 }
 
-func (s *HttpServerSuite) TestAuthentication(c *C) {
+func TestAuthentication(t *testing.T) {
 	*util.Creds = "u:pass1|u:pass2"
 	defer func() {
 		*util.Creds = ""
@@ -277,8 +328,12 @@ func (s *HttpServerSuite) TestAuthentication(c *C) {
 			}
 			res, err := http.DefaultClient.Do(req)
 			defer res.Body.Close()
-			c.Assert(err, Equals, nil)
-			c.Assert(res.Status, Equals, "401 Unauthorized")
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+			if res.StatusCode != http.StatusUnauthorized {
+				t.Fatalf("Expected %d to be 401 Unauthorized")
+			}
 		}
 	}
 
@@ -290,8 +345,12 @@ func (s *HttpServerSuite) TestAuthentication(c *C) {
 			req.SetBasicAuth("u", token)
 			res, err := http.DefaultClient.Do(req)
 			defer res.Body.Close()
-			c.Assert(err, Equals, nil)
-			c.Assert(res.StatusCode, Equals, status[method])
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+			if res.StatusCode != status[method] {
+				t.Fatalf("Expected %d to be %d", res.StatusCode, status[method])
+			}
 		}
 	}
 }

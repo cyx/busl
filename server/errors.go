@@ -10,12 +10,15 @@ import (
 	"github.com/heroku/busl/util"
 )
 
+const notRegistered = "Channel is not registered."
+const chunkedEncodingRequired = "A chunked Transfer-Encoding header is required."
+
 var errNoContent = errors.New("No Content")
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	switch err {
 	case broker.ErrNotRegistered, storage.ErrNoStorage, storage.ErrNotFound:
-		message := "Channel is not registered."
+		message := notRegistered
 		if r.Header.Get("Accept") == "text/ascii; version=feral" {
 			message = assets.HttpCatGone
 		}

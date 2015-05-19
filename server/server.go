@@ -62,7 +62,7 @@ func health(w http.ResponseWriter, r *http.Request) {
 
 func pub(w http.ResponseWriter, r *http.Request) {
 	if !util.StringSliceUtil(r.TransferEncoding).Contains("chunked") {
-		http.Error(w, "A chunked Transfer-Encoding header is required.", http.StatusBadRequest)
+		http.Error(w, chunkedEncodingRequired, http.StatusBadRequest)
 		return
 	}
 
