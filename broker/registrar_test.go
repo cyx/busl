@@ -6,31 +6,31 @@ import (
 	"github.com/heroku/busl/util"
 )
 
-func redisTestSetup() (string, *RedisRegistrar) {
+func redisTestSetup() string {
 	uuid, _ := util.NewUUID()
 
-	return uuid, NewRedisRegistrar()
+	return uuid
 }
 
 func TestRegisteredIsRegistered(t *testing.T) {
-	uuid, r := redisTestSetup()
-	r.Register(uuid)
+	uuid := redisTestSetup()
+	Register(uuid)
 
-	if !r.IsRegistered(uuid) {
+	if !IsRegistered(uuid) {
 		t.Fatalf("%s should be registered", uuid)
 	}
 }
 
 func TestUnregisteredIsNotRegistered(t *testing.T) {
-	uuid, r := redisTestSetup()
+	uuid := redisTestSetup()
 
-	if r.IsRegistered(uuid) {
+	if IsRegistered(uuid) {
 		t.Fatalf("%s should not be registered", uuid)
 	}
 }
 
 func TestUnregisteredErrNotRegistered(t *testing.T) {
-	uuid, _ := redisTestSetup()
+	uuid := redisTestSetup()
 
 	if _, err := NewReader(uuid); err != ErrNotRegistered {
 		t.Fatalf("NewReader should return ErrNotRegistered")
@@ -42,8 +42,8 @@ func TestUnregisteredErrNotRegistered(t *testing.T) {
 }
 
 func TestRegisteredNoError(t *testing.T) {
-	uuid, r := redisTestSetup()
-	r.Register(uuid)
+	uuid := redisTestSetup()
+	Register(uuid)
 
 	if _, err := NewReader(uuid); err != nil {
 		t.Fatalf("NewReader shouldn't return an error")

@@ -5,15 +5,7 @@ import (
 	"github.com/heroku/busl/util"
 )
 
-type RedisRegistrar struct{}
-
-func NewRedisRegistrar() *RedisRegistrar {
-	registrar := &RedisRegistrar{}
-
-	return registrar
-}
-
-func (rr *RedisRegistrar) Register(channelName string) (err error) {
+func Register(channelName string) (err error) {
 	conn := redisPool.Get()
 	defer conn.Close()
 
@@ -27,7 +19,7 @@ func (rr *RedisRegistrar) Register(channelName string) (err error) {
 	return
 }
 
-func (rr *RedisRegistrar) IsRegistered(channelName string) (registered bool) {
+func IsRegistered(channelName string) (registered bool) {
 	conn := redisPool.Get()
 	defer conn.Close()
 

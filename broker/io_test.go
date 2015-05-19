@@ -13,9 +13,8 @@ import (
 )
 
 func setup() string {
-	registrar := NewRedisRegistrar()
 	uuid, _ := util.NewUUID()
-	registrar.Register(uuid)
+	Register(uuid)
 
 	return uuid
 }

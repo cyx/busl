@@ -23,7 +23,6 @@ func init() {
 }
 
 func mkstream(w http.ResponseWriter, _ *http.Request) {
-	registrar := broker.NewRedisRegistrar()
 	uuid, err := util.NewUUID()
 	if err != nil {
 		http.Error(w, "Unable to create stream. Please try again.", http.StatusServiceUnavailable)
@@ -32,7 +31,7 @@ func mkstream(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 
-	if err := registrar.Register(uuid); err != nil {
+	if err := broker.Register(uuid); err != nil {
 		http.Error(w, "Unable to create stream. Please try again.", http.StatusServiceUnavailable)
 		rollbar.Error(rollbar.ERR, fmt.Errorf("unable to register stream: %#v", err))
 		util.CountWithData("mkstream.create.fail", 1, "error=%s", err)
@@ -44,9 +43,7 @@ func mkstream(w http.ResponseWriter, _ *http.Request) {
 }
 
 func put(w http.ResponseWriter, r *http.Request) {
-	registrar := broker.NewRedisRegistrar()
-
-	if err := registrar.Register(key(r)); err != nil {
+	if err := broker.Register(key(r)); err != nil {
 		http.Error(w, "Unable to create stream. Please try again.", http.StatusServiceUnavailable)
 		rollbar.Error(rollbar.ERR, fmt.Errorf("unable to register stream: %#v", err))
 		util.CountWithData("put.create.fail", 1, "error=%s", err)

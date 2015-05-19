@@ -232,8 +232,7 @@ func TestPut(t *testing.T) {
 		t.Fatalf("Expected %d to be 201 Created", res.StatusCode)
 	}
 
-	registrar := broker.NewRedisRegistrar()
-	if !registrar.IsRegistered("1/2/3") {
+	if !broker.IsRegistered("1/2/3") {
 		t.Fatalf("Expected channel 1/2/3 to be registered")
 	}
 }
@@ -280,8 +279,7 @@ func TestPutWithBackend(t *testing.T) {
 	server := httptest.NewServer(app())
 	defer server.Close()
 
-	registrar := broker.NewRedisRegistrar()
-	registrar.Register(uuid)
+	broker.Register(uuid)
 
 	// uuid = curl -XPUT <url>/streams/1/2/3
 	req, _ := http.NewRequest("POST", server.URL+"/streams/"+uuid, bytes.NewReader([]byte("hello world")))

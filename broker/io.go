@@ -16,7 +16,7 @@ type writer struct {
 var ErrNotRegistered = errors.New("Channel is not registered.")
 
 func NewWriter(key string) (io.WriteCloser, error) {
-	if !NewRedisRegistrar().IsRegistered(key) {
+	if !IsRegistered(key) {
 		return nil, ErrNotRegistered
 	}
 
@@ -59,7 +59,7 @@ type reader struct {
 }
 
 func NewReader(key string) (io.ReadCloser, error) {
-	if !NewRedisRegistrar().IsRegistered(key) {
+	if !IsRegistered(key) {
 		return nil, ErrNotRegistered
 	}
 
