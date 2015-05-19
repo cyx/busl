@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"testing"
 
 	"github.com/heroku/busl/util"
 )
@@ -141,7 +142,7 @@ func ExampleHalfReplayHalfSubscribed() {
 	// busl hello world
 }
 
-func ExampleOverflowingBuffer() {
+func TestOverflowingBuffer(t *testing.T) {
 	uuid := setup()
 
 	w, _ := NewWriter(uuid)
@@ -159,16 +160,17 @@ func ExampleOverflowingBuffer() {
 	defer r.(io.Closer).Close()
 
 	done := make(chan struct{})
+	var n int64
 	go func() {
-		n, _ := io.Copy(ioutil.Discard, r)
-		fmt.Printf("%d", n)
+		n, _ = io.Copy(ioutil.Discard, r)
 		close(done)
 	}()
 	w.Close()
 	<-done
 
-	//Output:
-	// 32769
+	if n != 32769 {
+		t.Fatalf("Expected io.Copy to have written 32769 bytes")
+	}
 }
 
 func setupReaderDone() (io.ReadCloser, io.WriteCloser, string) {
@@ -186,57 +188,49 @@ func setupReaderDone() (io.ReadCloser, io.WriteCloser, string) {
 	return r, w, uuid
 }
 
-func ExampleReadShortCircuitEOF() {
+func TestReadShortCircuitEOF(t *testing.T) {
 	r, _, _ := setupReaderDone()
 
 	p := make([]byte, 10)
-	_, err := r.Read(p)
 
-	fmt.Println(err)
-
-	//Output:
-	// EOF
+	if _, err := r.Read(p); err != io.EOF {
+		t.Fatalf("Expected err to be EOF, got %v", err)
+	}
 }
 
-func ExampleReaderDoneOnDrainedReader() {
+func TestReaderDoneOnDrainedReader(t *testing.T) {
 	r, _, _ := setupReaderDone()
-	fmt.Println(ReaderDone(r))
-
-	//Output:
-	// true
+	if !ReaderDone(r) {
+		t.Fatalf("Expected reader to be done")
+	}
 }
 
-func ExampleReaderDoneOnNewReader() {
+func TestReaderDoneOnNewReader(t *testing.T) {
 	_, _, uuid := setupReaderDone()
 
-	r, _ := NewReader(uuid)
-	fmt.Println(ReaderDone(r))
-
-	//Output:
-	// true
+	if r, _ := NewReader(uuid); !ReaderDone(r) {
+		t.Fatalf("Expected a new reader instance to report done")
+	}
 }
 
-func ExampleReaderDoneOnNonBrokerReader() {
-	fmt.Println(ReaderDone(strings.NewReader("hello")))
-
-	//Output:
-	// false
+func TestReaderDoneOnNonBrokerReader(t *testing.T) {
+	if ReaderDone(strings.NewReader("hello")) != false {
+		t.Fatalf("Expected a non io.Reader to return false on `ReaderDone`")
+	}
 }
 
-func ExampleNoContentWithData() {
+func TestNoContentWithData(t *testing.T) {
 	r, _, _ := setupReaderDone()
 
-	fmt.Println(NoContent(r, 0))
-
-	//Output:
-	// false
+	if NoContent(r, 0) != false {
+		t.Fatalf("Expected a reader with readable offset to have content")
+	}
 }
 
-func ExampleNoContentWithoutData() {
+func TestNoContentWithoutData(t *testing.T) {
 	r, _, _ := setupReaderDone()
 
-	fmt.Println(NoContent(r, 5))
-
-	//Output:
-	// true
+	if NoContent(r, 5) != true {
+		t.Fatalf("Expected a reader with unreadable offset to have no content")
+	}
 }
