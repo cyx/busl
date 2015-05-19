@@ -34,10 +34,6 @@
 			"ImportPath": "github.com/heroku/rollbar",
 			"Comment": "v0.3.0",
 			"Rev": "197e8a4fd165c96afe325b2297cf3bcaa5b9a6b4"
-		},
-		{
-			"ImportPath": "gopkg.in/check.v1",
-			"Rev": "5b76b26efe7f426789852e983fbde4de62c42282"
 		}
 	]
 }
