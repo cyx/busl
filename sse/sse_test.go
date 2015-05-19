@@ -1,7 +1,6 @@
 package sse
 
 import (
-	. "github.com/heroku/busl/Godeps/_workspace/src/gopkg.in/check.v1"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -27,22 +26,19 @@ var (
 	}
 )
 
-func Test(t *testing.T) { TestingT(t) }
-
-type SseSuite struct{}
-
-var _ = Suite(&SseSuite{})
-
-func (s *SseSuite) TestNoNewline(c *C) {
-	for _, t := range testdata {
-		r := strings.NewReader(t.input)
+func TestNoNewline(t *testing.T) {
+	for _, data := range testdata {
+		r := strings.NewReader(data.input)
 		enc := NewEncoder(r)
-		enc.(io.Seeker).Seek(t.offset, 0)
-		c.Assert(readstring(enc), Equals, t.output)
+		enc.(io.Seeker).Seek(data.offset, 0)
+
+		if encoded := readstring(enc); encoded != data.output {
+			t.Fatalf("Expected %s to equal %s", encoded, data.output)
+		}
 	}
 }
 
-func (s *SseSuite) TestNonSeekableReader(c *C) {
+func TestNonSeekableReader(t *testing.T) {
 	// Seek the underlying reader before
 	// passing to LimitReader: comparably similar
 	// to scenario when reading from an http.Response
@@ -57,7 +53,9 @@ func (s *SseSuite) TestNonSeekableReader(c *C) {
 
 	// `id` should be 11 even though the underlying
 	// reader wasn't seeked at all.
-	c.Assert(readstring(enc), Equals, "id: 11\ndata: d\n\n")
+	if encoded := readstring(enc); encoded != "id: 11\ndata: d\n\n" {
+		t.Fatalf(`Expected %s to be id: 11\ndata: d\n\n`)
+	}
 }
 
 func readstring(r io.Reader) string {
