@@ -92,7 +92,7 @@ func TestPubSub(t *testing.T) {
 		res, err := http.DefaultClient.Do(req)
 		defer res.Body.Close()
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Error(err)
 		}
 
 		done := make(chan bool)
@@ -103,7 +103,7 @@ func TestPubSub(t *testing.T) {
 			res, err = http.Get(url)
 			defer res.Body.Close()
 			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
+				t.Error(err)
 			}
 
 			body, _ := ioutil.ReadAll(res.Body)
@@ -121,7 +121,7 @@ func TestPubSub(t *testing.T) {
 		res, err = http.DefaultClient.Do(req)
 		defer res.Body.Close()
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Error(err)
 		}
 
 		<-done
@@ -133,7 +133,7 @@ func TestPubSub(t *testing.T) {
 		res, err = http.Get(server.URL + "/streams/" + uuid)
 		defer res.Body.Close()
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Error(err)
 		}
 
 		body, _ := ioutil.ReadAll(res.Body)
@@ -172,7 +172,7 @@ func TestPubSubSSE(t *testing.T) {
 		res, err := http.DefaultClient.Do(req)
 		defer res.Body.Close()
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Error(err)
 		}
 
 		done := make(chan bool)
@@ -182,7 +182,7 @@ func TestPubSubSSE(t *testing.T) {
 		req.TransferEncoding = []string{"chunked"}
 		res, err = http.DefaultClient.Do(req)
 		if err != nil {
-			t.Fatalf("Expected no error, got %v", err)
+			t.Error(err)
 		}
 		defer res.Body.Close()
 
@@ -196,7 +196,7 @@ func TestPubSubSSE(t *testing.T) {
 			res, err = http.DefaultClient.Do(req)
 			defer res.Body.Close()
 			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
+				t.Error(err)
 			}
 
 			body, _ := ioutil.ReadAll(res.Body)
@@ -226,7 +226,7 @@ func TestPut(t *testing.T) {
 	res, err := http.DefaultClient.Do(req)
 	defer res.Body.Close()
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Error(err)
 	}
 	if res.StatusCode != http.StatusCreated {
 		t.Fatalf("Expected %d to be 201 Created", res.StatusCode)
@@ -257,7 +257,7 @@ func TestSubGoneWithBackend(t *testing.T) {
 	res, err := http.Get(server.URL + "/streams/" + uuid)
 	defer res.Body.Close()
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Error(err)
 	}
 
 	body, _ := ioutil.ReadAll(res.Body)
@@ -289,7 +289,7 @@ func TestPutWithBackend(t *testing.T) {
 	res, err := http.DefaultClient.Do(req)
 	defer res.Body.Close()
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Error(err)
 	}
 	if res.StatusCode != http.StatusOK {
 		t.Fatalf("Expected %d to be 200 OK", res.StatusCode)
@@ -329,7 +329,7 @@ func TestAuthentication(t *testing.T) {
 			res, err := http.DefaultClient.Do(req)
 			defer res.Body.Close()
 			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
+				t.Error(err)
 			}
 			if res.StatusCode != http.StatusUnauthorized {
 				t.Fatalf("Expected %d to be 401 Unauthorized")
@@ -346,7 +346,7 @@ func TestAuthentication(t *testing.T) {
 			res, err := http.DefaultClient.Do(req)
 			defer res.Body.Close()
 			if err != nil {
-				t.Fatalf("Expected no error, got %v", err)
+				t.Error(err)
 			}
 			if res.StatusCode != status[method] {
 				t.Fatalf("Expected %d to be %d", res.StatusCode, status[method])
