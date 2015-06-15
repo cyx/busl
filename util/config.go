@@ -18,6 +18,7 @@ var (
 	RollbarEnvironment = flag.String("rollbarEnvironment", os.Getenv("ROLLBAR_ENVIRONMENT"), "Rollbar Enviornment for this application (development/staging/production).")
 	RollbarToken       = flag.String("rollbarToken", os.Getenv("ROLLBAR_TOKEN"), "Rollbar Token for sending issues to Rollbar.")
 	StorageBaseURL     = flag.String("storageBaseURL", os.Getenv("STORAGE_BASE_URL"), "Optional persistent blob storage (i.e. S3)")
+	StorageInterval    = flag.Duration("storageInterval", time.Second*300, "Interval for persisting streams to backend storage.")
 )
 
 func init() {
