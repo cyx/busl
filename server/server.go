@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/heroku/busl/Godeps/_workspace/src/github.com/braintree/manners"
 	"github.com/heroku/busl/Godeps/_workspace/src/github.com/gorilla/mux"
@@ -90,8 +91,24 @@ func pub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Asynchronously upload the output to our defined storage backend.
-	go storeOutput(key(r), requestURI(r))
+	done := make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-done:
+				// Asynchronously upload the output to our defined storage backend.
+				go storeOutput(key(r), requestURI(r))
+				return
+			case <-time.After(*util.StorageInterval):
+				// Asynchronously upload the output to our defined storage backend.
+				go storeOutput(key(r), requestURI(r))
+			}
+		}
+
+	}()
+
+	close(done)
 }
 
 func sub(w http.ResponseWriter, r *http.Request) {
