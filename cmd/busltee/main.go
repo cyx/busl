@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/heroku/busl/Godeps/_workspace/src/github.com/heroku/log-shuttle"
 	flag "github.com/heroku/busl/Godeps/_workspace/src/github.com/ogier/pflag"
 	"github.com/heroku/busl/busltee"
 )
