@@ -6,6 +6,10 @@
 	],
 	"Deps": [
 		{
+			"ImportPath": "github.com/bmizerany/aws4",
+			"Rev": "5fb2e72396263668edd9a2956052e402cf6c104a"
+		},
+		{
 			"ImportPath": "github.com/braintree/manners",
 			"Comment": "0.3.1-2-g5280e25",
 			"Rev": "5280e250f2795914acbeb2bf3b55dd5a2d1fba52"
@@ -31,9 +35,18 @@
 			"Rev": "90765b9b92e3aef6da4b217586e9b64e0aee8378"
 		},
 		{
+			"ImportPath": "github.com/heroku/log-shuttle",
+			"Comment": "v0.12.0",
+			"Rev": "6614c00b6443046e368248d1e99a2f8ef67374cb"
+		},
+		{
 			"ImportPath": "github.com/heroku/rollbar",
 			"Comment": "v0.3.0",
 			"Rev": "197e8a4fd165c96afe325b2297cf3bcaa5b9a6b4"
+		},
+		{
+			"ImportPath": "github.com/nu7hatch/gouuid",
+			"Rev": "179d4d0c4d8d407a32af483c2354df1d2c91e6c3"
 		},
 		{
 			"ImportPath": "github.com/ogier/pflag",
@@ -44,6 +57,10 @@
 			"ImportPath": "github.com/stretchr/testify/assert",
 			"Comment": "v1.0",
 			"Rev": "232e8563676cd15c3a36ba5e675ad4312ac4cb11"
+		},
+		{
+			"ImportPath": "github.com/rcrowley/go-metrics",
+			"Rev": "dee209f2455f101a5e4e593dea94872d2c62d85d"
 		}
 	]
 }
