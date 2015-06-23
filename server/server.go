@@ -77,20 +77,6 @@ func pub(w http.ResponseWriter, r *http.Request) {
 	body := bufio.NewReader(r.Body)
 	defer r.Body.Close()
 
-	_, err = io.Copy(writer, body)
-
-	if err == io.ErrUnexpectedEOF {
-		util.CountWithData("server.pub.read.eoferror", 1, "msg=\"%v\"", err.Error())
-		return
-	}
-
-	if err != nil {
-		log.Printf("%#v", err)
-		http.Error(w, "Unhandled error, please try again.", http.StatusInternalServerError)
-		rollbar.Error(rollbar.ERR, fmt.Errorf("unhandled error: %#v", err))
-		return
-	}
-
 	done := make(chan struct{})
 
 	go func() {
@@ -107,6 +93,20 @@ func pub(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}()
+
+	_, err = io.Copy(writer, body)
+
+	if err == io.ErrUnexpectedEOF {
+		util.CountWithData("server.pub.read.eoferror", 1, "msg=\"%v\"", err.Error())
+		return
+	}
+
+	if err != nil {
+		log.Printf("%#v", err)
+		http.Error(w, "Unhandled error, please try again.", http.StatusInternalServerError)
+		rollbar.Error(rollbar.ERR, fmt.Errorf("unhandled error: %#v", err))
+		return
+	}
 
 	close(done)
 }
